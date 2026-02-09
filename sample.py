@@ -7,6 +7,7 @@ from contextlib import nullcontext
 import torch
 import tiktoken
 from model import GPTConfig, GPT
+import time
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
@@ -84,6 +85,16 @@ x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
 with torch.no_grad():
     with ctx:
         for k in range(num_samples):
+            torch.cuda.reset_peak_memory_stats()
+            start_time = time.time()
             y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
+            end_time = time.time()
+
+            total_time = end_time - start_time
+            per_token_time = total_time / max_new_tokens
+            peak_mem = torch.cuda.max_memory_allocated() / 1e6
+            print(f"Total time: {total_time:.4f}s")
+            print(f"Per-token time: {per_token_time:.6f}s")
+            print(f"Peak GPU memory: {peak_mem:.2f} MB")
             print(decode(y[0].tolist()))
             print('---------------')
