@@ -8,6 +8,11 @@ import torch
 import tiktoken
 from model import GPTConfig, GPT
 import time
+import numpy as np
+
+times=[]
+per_token_times=[]
+peak_mems=[]
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
@@ -96,8 +101,19 @@ with torch.no_grad():
             print(f"Total time: {total_time:.4f}s")
             print(f"Per-token time: {per_token_time:.6f}s")
             print(f"Peak GPU memory: {peak_mem:.2f} MB")
+            times.append(total_time)
+            per_token_times.append(per_token_time)
+            peak_mems.append(peak_mem)
             print('---------------')
             print(f"start context: '''{start}'''")
             print('---------------')
             print(decode(y[0].tolist()))
             print('---------------')
+
+
+np.savez(
+    "partA_results.npz",
+    times=np.array(times),
+    per_token_times=np.array(per_token_times),
+    peak_mems=np.array(peak_mems)
+)
