@@ -184,11 +184,12 @@ class GPT(nn.Module):
             current_cache_length = past_kvs[0][0].size(2)
             if current_cache_length + t >= self.config.block_size:
                 keep_len = self.config.block_size - t
-            past_kvs = [
-                    (k[:, :, -keep_len:, :], v[:, :, -keep_len:, :]) 
-                    for k, v in past_kvs
-                ]
-            current_cache_len = keep_len
+                past_kvs = [
+                        (k[:, :, -keep_len:, :], v[:, :, -keep_len:, :]) 
+                        for k, v in past_kvs
+                    ]
+                current_cache_len = keep_len
+            pos = torch.arange(current_cache_len, current_cache_len + t, dtype=torch.long, device=device)
         else:
             pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
 
