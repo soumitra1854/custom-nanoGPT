@@ -181,8 +181,8 @@ class GPT(nn.Module):
         b, t = idx.size()
         assert t <= self.config.block_size, f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
         if past_kvs is not None:
-            current_cache_length = past_kvs[0][0].size(2)
-            if current_cache_length + t >= self.config.block_size:
+            current_cache_len = past_kvs[0][0].size(2)
+            if current_cache_len + t >= self.config.block_size:
                 keep_len = self.config.block_size - t
                 past_kvs = [
                         (k[:, :, -keep_len:, :], v[:, :, -keep_len:, :]) 
