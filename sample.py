@@ -11,15 +11,15 @@ import time
 import numpy as np
 
 times=[]
-per_token_times=[]
+start_lengths=[]
 peak_mems=[]
 
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
 out_dir = 'out' # ignored if init_from is not 'resume'
-start = "FILE:prompt.txt" # or "<|endoftext|>" or etc. Can also specify a file, use as: "FILE:prompt.txt"
-num_samples = 10 # number of samples to draw
-max_new_tokens = 500 # number of tokens generated in each sample
+# start = "FILE:prompt.txt" # or "<|endoftext|>" or etc. Can also specify a file, use as: "FILE:prompt.txt"
+num_samples = 1 # number of samples to draw
+max_new_tokens = 50 # number of tokens generated in each sample
 temperature = 0.8 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
 top_k = 200 # retain only the top_k most likely tokens, clamp others to have 0 probability
 seed = 1337
@@ -79,41 +79,75 @@ else:
     encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
     decode = lambda l: enc.decode(l)
 
-# encode the beginning of the prompt
-if start.startswith('FILE:'):
-    with open(start[5:], 'r', encoding='utf-8') as f:
-        start = f.read()
-start_ids = encode(start)
-x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
+# # encode the beginning of the prompt
+# if start.startswith('FILE:'):
+#     with open(start[5:], 'r', encoding='utf-8') as f:
+#         start = f.read()
+lengths = [16, 32, 64, 128, 256, 512]
+base = "This is a sample prompt. "
+var_length_prompts = {}
+print("Using the following variable-length prompts:")
 
-# run generation
+for L in lengths:
+    toks = []
+    while len(toks) < L:
+        toks.extend(encode(base))
+    toks = toks[:L]
+    var_length_prompts[L] = decode(toks)
+    print(f"{L} tokens: '''{var_length_prompts[L]}'''")
+
 with torch.no_grad():
     with ctx:
-        for k in range(num_samples):
+        for L in lengths:
+            print(f"Running sample with prompt of length {L} tokens...")
+            start = var_length_prompts[L]
+            start_ids = encode(start)
+            x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
             torch.cuda.reset_peak_memory_stats()
             start_time = time.time()
             y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
             end_time = time.time()
 
             total_time = end_time - start_time
-            per_token_time = total_time / max_new_tokens
             peak_mem = torch.cuda.max_memory_allocated() / 1e6
             print(f"Total time: {total_time:.4f}s")
-            print(f"Per-token time: {per_token_time:.6f}s")
             print(f"Peak GPU memory: {peak_mem:.2f} MB")
             times.append(total_time)
-            per_token_times.append(per_token_time)
             peak_mems.append(peak_mem)
+            start_lengths.append(L)
             print('---------------')
             print(f"start context: '''{start}'''")
             print('---------------')
             print(decode(y[0].tolist()))
             print('---------------')
 
+# # run generation
+# with torch.no_grad():
+#     with ctx:
+#         for k in range(num_samples):
+#             torch.cuda.reset_peak_memory_stats()
+#             start_time = time.time()
+#             y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
+#             end_time = time.time()
+
+#             total_time = end_time - start_time
+#             per_token_time = total_time / max_new_tokens
+#             peak_mem = torch.cuda.max_memory_allocated() / 1e6
+#             print(f"Total time: {total_time:.4f}s")
+#             print(f"Per-token time: {per_token_time:.6f}s")
+#             print(f"Peak GPU memory: {peak_mem:.2f} MB")
+#             times.append(total_time)
+#             per_token_times.append(per_token_time)
+#             peak_mems.append(peak_mem)
+#             print('---------------')
+#             print(f"start context: '''{start}'''")
+#             print('---------------')
+#             print(decode(y[0].tolist()))
+#             print('---------------')
 
 np.savez(
     "partA_results.npz",
     times=np.array(times),
-    per_token_times=np.array(per_token_times),
+    start_lengths=np.array(start_lengths),
     peak_mems=np.array(peak_mems)
 )
